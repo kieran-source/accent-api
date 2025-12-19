@@ -1,0 +1,7 @@
+flask==2.3.3
+gunicorn==21.2.0
+speechbrain==0.5.16
+torch==2.0.1
+torchaudio==2.0.2
+huggingface_hub==0.16.4
+requests==2.31.0
