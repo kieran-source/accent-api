@@ -107,15 +107,18 @@ def classify_accent():
             # Classify
             out_prob, score, index, text_lab = classifier.classify_file(audio_path)
             
-            detected = text_lab[0].lower() if text_lab else "unknown"
-            confidence = float(score[0]) if score is not None else 0.0
-            
-            # Get top 3
+            # FIX: Get labels from the model's label encoder (correct order!)
+            # Don't use hardcoded list - the order must match the model's internal order
             probs = out_prob[0].tolist()
-            labels = ['africa', 'australia', 'bermuda', 'canada', 'england', 'hongkong', 
-                     'india', 'ireland', 'malaysia', 'newzealand', 'philippines', 
-                     'scotland', 'singapore', 'southatlandtic', 'us', 'wales']
-            top3 = sorted(zip(labels, probs), key=lambda x: x[1], reverse=True)[:3]
+            labels = classifier.hparams.label_encoder.decode_ndim(range(len(probs)))
+            
+            # Build sorted predictions
+            sorted_predictions = sorted(zip(labels, probs), key=lambda x: x[1], reverse=True)
+            top3 = sorted_predictions[:3]
+            
+            # Use highest probability prediction (not text_lab which can be wrong)
+            detected = top3[0][0].lower()
+            confidence = top3[0][1]
             
             # Parse requested
             requested_parsed = extract_accent_requirement(requested_accent_raw)
