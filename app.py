@@ -16,9 +16,9 @@ classifier = EncoderClassifier.from_hparams(
 )
 print("Model loaded!")
 
-# Accent groups for matching
+# Accent groups for matching — only broad groups where interchangeability is acceptable
+# British Isles accents (scotland, ireland, wales, england) require exact match
 ACCENT_GROUPS = {
-    'british': ['england', 'scotland', 'wales', 'ireland'],
     'american': ['us', 'canada'],
 }
 
