@@ -16,10 +16,14 @@ classifier = EncoderClassifier.from_hparams(
 )
 print("Model loaded!")
 
-# Accent groups for matching — only broad groups where interchangeability is acceptable
-# British Isles accents (scotland, ireland, wales, england) require exact match
+# Accent groups for matching — only broad groups where interchangeability is acceptable.
+# British Isles is grouped: SpeechBrain's regional accuracy isn't reliable enough to
+# enforce exact-match for scotland vs ireland vs wales vs england. The gate's job is
+# to catch broad-category mismatches (UK vs US vs India), not regional drift.
+# Manual spot-check + /regen-scene handles regional issues.
 ACCENT_GROUPS = {
     'american': ['us', 'canada'],
+    'british_isles': ['england', 'scotland', 'wales', 'ireland'],
 }
 
 def extract_accent_requirement(voice_description):
