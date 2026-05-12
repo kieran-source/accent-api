@@ -48,25 +48,52 @@ def extract_accent_requirement(voice_description):
         return 'canada'
     return None
 
-def check_accent_match(detected, requested):
-    """Check if detected accent matches or is acceptable for requested"""
+LOW_CONF_FLOOR = 0.50  # if top1 prob < this, fall back to top-3 group match
+
+def _is_group_match(a, b):
+    for members in ACCENT_GROUPS.values():
+        if a in members and b in members:
+            return True
+    return False
+
+def check_accent_match(top3, requested):
+    """Check if detected accent matches or is acceptable for requested.
+
+    top3: list of (accent, prob) tuples sorted desc. SpeechBrain regional
+    confidence is weak (~0.4-0.6 range), so top-1 alone is unstable. When the
+    model is uncertain (top1 < LOW_CONF_FLOOR), we treat any top-3 member of
+    the requested group as a pass — the right answer is usually in top-3.
+    """
+    detected, top1_prob = top3[0]
+
     if detected == requested:
         return True, "exact_match"
-    
-    for group, members in ACCENT_GROUPS.items():
-        if detected in members and requested in members:
-            return True, f"group_match_{group}"
-    
+
+    if _is_group_match(detected, requested):
+        for group, members in ACCENT_GROUPS.items():
+            if detected in members and requested in members:
+                return True, f"group_match_{group}"
+
+    if top1_prob < LOW_CONF_FLOOR:
+        for i in range(1, len(top3)):
+            cand, _cand_prob = top3[i]
+            if cand == requested:
+                return True, f"top3_low_conf_exact_pos{i+1}"
+            if _is_group_match(cand, requested):
+                for group, members in ACCENT_GROUPS.items():
+                    if cand in members and requested in members:
+                        return True, f"top3_low_conf_{group}_pos{i+1}"
+
     british = ['england', 'scotland', 'wales', 'ireland']
     american = ['us', 'canada']
-    
+
     if requested in british and detected in american:
         return False, "american_instead_of_british"
     if requested in american and detected in british:
         return False, "british_instead_of_american"
     if requested in british and detected == 'india':
         return False, "indian_instead_of_british"
-    
+
     return False, "mismatch"
 
 @app.route('/health', methods=['GET'])
@@ -127,9 +154,11 @@ def classify_accent():
             # Parse requested
             requested_parsed = extract_accent_requirement(requested_accent_raw)
             
-            # Check match
+            # Check match — pass the full top-3 so the low-confidence escape rule
+            # can fall back to top-3 group match when top1 is unstable.
+            top3_pairs = [(a.lower(), p) for a, p in top3]
             if requested_parsed:
-                is_match, match_type = check_accent_match(detected, requested_parsed)
+                is_match, match_type = check_accent_match(top3_pairs, requested_parsed)
             else:
                 is_match = True
                 match_type = "no_requirement_parsed"
